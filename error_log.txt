@@ -1,0 +1,4 @@
+2025-10-26 10:00 INFO: System OK
+2025-10-26 10:01 ERROR: Login failed
+2025-10-26 10:02 INFO: System OK
+2025-10-26 10:03 ERROR: Connection lost
