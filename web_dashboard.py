@@ -2,11 +2,36 @@
 from flask import Flask, render_template_string
 import time
 from datetime import datetime
+import sqlite3
 import os
 
 app = Flask(__name__)
 
 WEBHOOK_URL = "https://discord.com/api/webhooks/1442275533697060874/Hd0j2d2Eo--ECxJCnuO2XVxga4KzMzWMDcU96JDWv6tv1fKGZTIDrOJewi8vNMEnC5nc"
+DB_FILE = "soc.db"
+
+# Création de la base et de la table si elle n'existe pas
+conn = sqlite3.connect(DB_FILE)
+conn.execute('''
+CREATE TABLE IF NOT EXISTS alerts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp TEXT,
+    level TEXT,
+    message TEXT
+)
+''')
+conn.commit()
+conn.close()
+
+def log_event(level, message):
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn = sqlite3.connect(DB_FILE)
+    conn.execute("INSERT INTO alerts (timestamp, level, message) VALUES (?, ?, ?)", (timestamp, level, message))
+    conn.commit()
+    conn.close()
+
+def send_discord(message):
+    os.system(f'curl -s -H "Content-Type: application/json" -d \'{{"content": "{message}"}}\' {WEBHOOK_URL} > /dev/null')
 
 def count_word(mot):
     try:
@@ -16,17 +41,18 @@ def count_word(mot):
         return 0
 
 def get_history():
-    try:
-        with open("soc_events.log") as f:
-            return f.read().strip().split("\n")[-10:][::-1]
-    except:
-        return ["Aucun historique"]
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.execute("SELECT timestamp, level, message FROM alerts ORDER BY id DESC LIMIT 10")
+    history = [f"[{row[0]}] [{row[1]}] {row[2]}" for row in cursor]
+    conn.close()
+    return history[::-1]
 
+# HTML du dashboard (même que J31 avec clignotement + sirène)
 HTML = '''
 <!DOCTYPE html>
 <html>
 <head>
-    <title>MINI-SIEM FRÉRO — J31</title>
+    <title>MINI-SIEM FRÉRO — J32</title>
     <meta http-equiv="refresh" content="5">
     <style>
         body { font-family: monospace; background: #000; color: #0f0; text-align: center; transition: background 0.5s; }
@@ -54,7 +80,7 @@ HTML = '''
     <div class="bar"><div class="fill" style="width: {{ percent }}%"></div></div>
     <h3>DANGER : {{ percent }}%</h3>
     <hr>
-    <h3>Dernières alertes :</h3>
+    <h3>Dernières alertes (SQLite) :</h3>
     {% for line in history %}
         <p>{{ line }}</p>
     {% endfor %}
@@ -69,19 +95,24 @@ HTML = '''
 @app.route("/")
 def dashboard():
     errors = count_word("ERROR")
-    alert = errors >= 5
+    infos = count_word("INFO")
     percent = min(errors * 10, 100)
+    alert = errors >= 5
+    if alert:
+        log_event("CRITICAL", f"ALERTE ROUGE → {errors} erreurs détectées !")
+        send_discord(f"**ALERTE ROUGE** → {errors} erreurs (J32 SQLite)")
     return render_template_string(HTML, 
         timestamp=datetime.now().strftime("%d/%m %H:%M:%S"),
-        infos=count_word("INFO"), errors=errors, percent=percent,
+        infos=infos, errors=errors, percent=percent,
         history=get_history(), alert=alert
     )
 
 @app.route("/test")
 def test():
-    os.system(f'curl -s -H "Content-Type: application/json" -d \'{{"content": "🚨 TEST ALERTE J31 — SIRÈNE + CLIGNOTEMENT !!"}}\' {WEBHOOK_URL}')
-    return "<h1 style='color:red'>TEST ENVOYÉ + SIRÈNE ACTIVÉE !</h1><a href='/'>Retour</a>"
+    log_event("TEST", "Alerte test depuis J32")
+    send_discord("**TEST ALERTE** depuis J32")
+    return "<h1>TEST ENVOYÉ + LOGGÉ EN DB !</h1><a href='/'>Retour</a>"
 
 if __name__ == "__main__":
-    print("J31 → Dashboard avec clignotement + sirène navigateur → http://127.0.0.1:5000")
+    print("J32 → Dashboard avec SQLite → http://127.0.0.1:5000")
     app.run(host="0.0.0.0", port=5000)
