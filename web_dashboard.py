@@ -10,7 +10,7 @@ app = Flask(__name__)
 WEBHOOK_URL = "https://discord.com/api/webhooks/1442275533697060874/Hd0j2d2Eo--ECxJCnuO2XVxga4KzMzWMDcU96JDWv6tv1fKGZTIDrOJewi8vNMEnC5nc"
 DB_FILE = "soc.db"
 
-# Création de la base et de la table si elle n'existe pas
+# Création de la base et de la table
 conn = sqlite3.connect(DB_FILE)
 conn.execute('''
 CREATE TABLE IF NOT EXISTS alerts (
@@ -47,7 +47,6 @@ def get_history():
     conn.close()
     return history[::-1]
 
-# HTML du dashboard (même que J31 avec clignotement + sirène)
 HTML = '''
 <!DOCTYPE html>
 <html>
@@ -55,27 +54,13 @@ HTML = '''
     <title>MINI-SIEM FRÉRO — J32</title>
     <meta http-equiv="refresh" content="5">
     <style>
-        body { font-family: monospace; background: #000; color: #0f0; text-align: center; transition: background 0.5s; }
+        body { font-family: monospace; background: #000; color: #0f0; text-align: center; }
         .bar { background: #333; width: 50%; margin: 20px auto; height: 30px; }
-        .fill { background: #f00; height: 100%; transition: width 1s; }
-        .alert { animation: blink 1s infinite; }
-        @keyframes blink { 0% { color: #f00; } 50% { color: #fff; } 100% { color: #f00; } }
-        .flash { animation: flash 1s infinite; }
-        @keyframes flash { 0% { background: #300; } 50% { background: #f00; } 100% { background: #300; } }
+        .fill { background: #f00; height: 100%; }
     </style>
-    <script>
-        function playAlarm() {
-            var audio = new Audio('https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3');
-            audio.loop = true;
-            audio.play();
-        }
-        {% if alert %}
-            window.onload = playAlarm;
-        {% endif %}
-    </script>
 </head>
-<body class="{% if alert %}flash{% endif %}">
-    <h1 class="{% if alert %}alert{% endif %}">MINI-SIEM LIVE — {{ timestamp }}</h1>
+<body>
+    <h1>MINI-SIEM LIVE — {{ timestamp }}</h1>
     <h2>INFO : {{ infos }} | ERROR : <span style="color:red">{{ errors }}</span></h2>
     <div class="bar"><div class="fill" style="width: {{ percent }}%"></div></div>
     <h3>DANGER : {{ percent }}%</h3>
@@ -85,9 +70,7 @@ HTML = '''
         <p>{{ line }}</p>
     {% endfor %}
     <br>
-    <a href="/test" style="font-size: {% if alert %}50px{% else %}20px{% endif %}; color: {% if alert %}red{% else %}yellow{% endif %}">
-        [ TEST ALERTE ]
-    </a>
+    <a href="/test">[ TEST ALERTE ]</a>
 </body>
 </html>
 '''
@@ -109,8 +92,8 @@ def dashboard():
 
 @app.route("/test")
 def test():
-    log_event("TEST", "Alerte test depuis J32")
-    send_discord("**TEST ALERTE** depuis J32")
+    log_event("TEST", "Test depuis J32")
+    send_discord("**TEST** depuis J32")
     return "<h1>TEST ENVOYÉ + LOGGÉ EN DB !</h1><a href='/'>Retour</a>"
 
 if __name__ == "__main__":
