@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
-from flask import Flask, render_template_string
+from flask import Flask, render_template_string, send_file
 import time
 from datetime import datetime, timedelta
 import sqlite3
 import os
+import csv
+from io import StringIO
 
 app = Flask(__name__)
 
 WEBHOOK_URL = "https://discord.com/api/webhooks/1442275533697060874/Hd0j2d2Eo--ECxJCnuO2XVxga4KzMzWMDcU96JDWv6tv1fKGZTIDrOJewi8vNMEnC5nc"
 DB_FILE = "soc.db"
 
-# Création table (déjà fait, mais au cas où)
+# Création table si besoin
 conn = sqlite3.connect(DB_FILE)
 conn.execute('''
 CREATE TABLE IF NOT EXISTS alerts (
@@ -44,12 +46,11 @@ def get_stats():
     conn = sqlite3.connect(DB_FILE)
     today = datetime.now().strftime("%Y-%m-%d")
     week_start = (datetime.now() - timedelta(days=datetime.now().weekday())).strftime("%Y-%m-%d")
-    
+    total = conn.execute("SELECT COUNT(*) FROM alerts").fetchone()[0]
     today_count = conn.execute("SELECT COUNT(*) FROM alerts WHERE level='CRITICAL' AND timestamp LIKE ?", (f"{today}%",)).fetchone()[0]
     week_count = conn.execute("SELECT COUNT(*) FROM alerts WHERE level='CRITICAL' AND timestamp >= ?", (f"{week_start} 00:00:00",)).fetchone()[0]
-    
     conn.close()
-    return today_count, week_count
+    return today_count, week_count, total
 
 def get_history():
     conn = sqlite3.connect(DB_FILE)
@@ -58,11 +59,23 @@ def get_history():
     conn.close()
     return history[::-1]
 
+@app.route("/export")
+def export():
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.execute("SELECT timestamp, level, message FROM alerts ORDER BY id DESC")
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Timestamp", "Level", "Message"])
+    writer.writerows(cursor)
+    output.seek(0)
+    conn.close()
+    return send_file(output, mimetype="text/csv", as_attachment=True, download_name="soc_alerts.csv")
+
 HTML = '''
 <!DOCTYPE html>
 <html>
 <head>
-    <title>MINI-SIEM FRÉRO — J33</title>
+    <title>MINI-SIEM FRÉRO — J34</title>
     <meta http-equiv="refresh" content="5">
     <style>
         body { font-family: monospace; background: #000; color: #0f0; text-align: center; }
@@ -79,6 +92,9 @@ HTML = '''
     <h3>STATS AVANCÉES :</h3>
     <p>Alertes CRITICAL aujourd'hui : <span style="color:red">{{ today }}</span></p>
     <p>Alertes CRITICAL cette semaine : <span style="color:red">{{ week }}</span></p>
+    <p>Total alertes depuis le début : <span style="color:yellow">{{ total }}</span></p>
+    <hr>
+    <a href="/export" style="font-size: 25px; color: cyan">[ EXPORTER EN CSV ]</a>
     <hr>
     <h3>Dernières alertes :</h3>
     {% for line in history %}
@@ -95,24 +111,24 @@ def dashboard():
     errors = count_word("ERROR")
     infos = count_word("INFO")
     percent = min(errors * 10, 100)
-    today, week = get_stats()
+    today, week, total = get_stats()
     alert = errors >= 5
     if alert:
         log_event("CRITICAL", f"ALERTE ROUGE → {errors} erreurs détectées !")
-        send_discord(f"**ALERTE ROUGE** → {errors} erreurs (J33 Stats)")
+        send_discord(f"**ALERTE ROUGE** → {errors} erreurs (J34 Export CSV)")
     return render_template_string(HTML, 
         timestamp=datetime.now().strftime("%d/%m %H:%M:%S"),
         infos=infos, errors=errors, percent=percent,
-        today=today, week=week,
+        today=today, week=week, total=total,
         history=get_history(), alert=alert
     )
 
 @app.route("/test")
 def test():
-    log_event("TEST", "Test depuis J33")
-    send_discord("**TEST** depuis J33")
+    log_event("TEST", "Test depuis J34")
+    send_discord("**TEST** depuis J34")
     return "<h1>TEST ENVOYÉ + LOGGÉ EN DB !</h1><a href='/'>Retour</a>"
 
 if __name__ == "__main__":
-    print("J33 → Dashboard avec stats jour/semaine → http://127.0.0.1:5000")
+    print("J34 → Dashboard avec export CSV + total alertes → http://127.0.0.1:5000")
     app.run(host="0.0.0.0", port=5000)
