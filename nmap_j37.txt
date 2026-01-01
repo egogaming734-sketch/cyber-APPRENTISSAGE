@@ -1,0 +1,6 @@
+J37 - Premier scan Nmap (01/01/2026)
+Réseau : 172.23.80.0/20
+Hôtes up : 2 (172.23.80.1 - passerelle Microsoft + 172.23.83.223 - mon PC)
+
+Scan -sn : 2 hôtes
+Scan -T4 -A : Port 22 ouvert SSH sur mon PC (OpenSSH 9.6p1 Ubuntu)
