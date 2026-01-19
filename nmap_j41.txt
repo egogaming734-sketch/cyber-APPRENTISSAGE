@@ -1,0 +1,4 @@
+J41 - Scan détaillé box (192.168.1.1)
+Ports ouverts : 23 filtered, 53 open DNS, 80 open HTTP, 443 open HTTPS, 52869 open UPnP
+Services : DNS BIND, HTTP redirect, HTTPS, UPnP 1.6.22
+Risques : interface admin HTTP, UPnP potentiel
