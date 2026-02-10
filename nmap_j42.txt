@@ -1,0 +1,4 @@
+J42 - Scan appareil 192.168.1.5
+Ports ouverts : 0 (tout filtré par firewall)
+MAC : E2:8E:4D:EF:7F:33 (Unknown)
+Risque : très faible (appareil bien protégé)
